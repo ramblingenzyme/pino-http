@@ -79,7 +79,9 @@ export const stdSerializers: StdSerializers;
 declare module "http" {
     interface IncomingMessage {
       id: ReqId;
-      log: pino.Logger;
+      log: pino.Logger & {
+        addLogBindings: (bindings: pino.Bindings, options?: pino.ChildLoggerOptions) => void;
+      };
       allLogs: pino.Logger[];
     }
 

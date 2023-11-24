@@ -147,8 +147,10 @@ function pinoLogger (opts, stream) {
       fullReqLogger = fullReqLogger.child(customPropBindings)
     }
 
-    const responseLogger = fullReqLogger
-    const requestLogger = quietReqLogger ? log : fullReqLogger
+    // Unsure if there should be separate proxifiedResponse/Request loggers, so additional bindings only affect the middleware chain,
+    // and not autologging or the post response logging.
+    const responseLogger = proxifyLogger(fullReqLogger)
+    const requestLogger = proxifyLogger(quietReqLogger ? log : fullReqLogger)
 
     if (!res.log) {
       res.log = responseLogger
@@ -260,6 +262,26 @@ function defaultFailedRequestMessageProvider () {
 
 function defaultSuccessfulRequestMessageProvider (req, res) {
   return res.writableEnded ? 'request completed' : 'request aborted'
+}
+
+function proxifyLogger(logger) {
+  // This ensures we don't end up wrapping the same logger in multiple proxies
+  const originalLogger = logger.child({});
+  let currentLogger = originalLogger;
+
+  const addLogBindings = (bindings, options) => {
+    currentLogger = currentLogger.child(bindings, options);
+  }
+
+  return new Proxy(originalLogger, {
+    get(target, property, receiver) {
+      if (property === "addLogBindings") {
+        return addLogBindings;
+      } else {
+        return Reflect.get(currentLogger || target, property, receiver);
+      }
+    }
+  })
 }
 
 module.exports = pinoLogger
